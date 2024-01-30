@@ -23,6 +23,7 @@ import courseRoute from "./routes/courseRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 app.use(cookieParser());
 app.use("/api/v1", courseRoute);
+
 app.use("/api/v1", userRoutes);
 
 export default app;

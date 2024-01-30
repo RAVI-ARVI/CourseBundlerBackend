@@ -76,3 +76,56 @@ export const getMyProfile = catchAsyncError(async (req, res, next) => {
     user,
   });
 });
+
+export const changeMyPassword = catchAsyncError(async (req, res, next) => {
+  const { oldPassword, newPassword } = req.body;
+
+  if (!oldPassword || !newPassword) {
+    return next(new ErrorHandler("Please Enter All Fields", 400));
+  }
+
+  const user = await User.findById(req.user._id).select("+password");
+
+  const validatePassword = await user.comparePassword(oldPassword);
+  if (!validatePassword) {
+    return next(new ErrorHandler("Invalidate Password", 401));
+  }
+  user.password = newPassword;
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Password changed successfully",
+  });
+});
+
+export const updateProfile = catchAsyncError(async (req, res, next) => {
+  const { name, email } = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  if (name) {
+    user.name = name;
+  }
+
+  if (email) {
+    user.email = email;
+  }
+
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile Updated successfully",
+    user,
+  });
+});
+
+export const updateProfilePicture = catchAsyncError(async (req, res, next) => {
+  // Need to add Multer : ToDo
+
+  return res.status(201).json({
+    success: true,
+    message: "Profile Picture will  Update soon",
+  });
+});

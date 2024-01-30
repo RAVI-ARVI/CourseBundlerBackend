@@ -1,9 +1,12 @@
 import express from "express";
 import {
+  changeMyPassword,
   getMyProfile,
   login,
   logout,
   register,
+  updateProfile,
+  updateProfilePicture,
 } from "../Controllers/userController.js";
 import { isAuthenticated } from "../middlewares/auth.js";
 
@@ -21,6 +24,11 @@ router.route("/login").post(login);
 router.route("/logout").get(logout);
 
 router.route("/myprofile").get(isAuthenticated, getMyProfile);
+router.route("/changepassword").put(isAuthenticated, changeMyPassword);
+router.route("/updateprofile").put(isAuthenticated, updateProfile);
+router
+  .route("/updateprofilepicture")
+  .put(isAuthenticated, updateProfilePicture);
 
 //get my profile
 
