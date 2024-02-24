@@ -1,4 +1,5 @@
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import mongoose, { Schema, model } from "mongoose";
 import validator from "validator";
@@ -52,8 +53,8 @@ const schema = new Schema(
       },
     ],
 
-    ResetPasswordToken: String,
-    ResetPasswordExpire: String,
+    resetPasswordToken: String,
+    resetPasswordExpire: String,
   },
   { timestamps: true }
 );
@@ -77,6 +78,20 @@ schema.methods.getJWTToken = function () {
       expiresIn: "15d",
     }
   );
+};
+
+schema.methods.generateToken = async function () {
+  // generate token
+
+  const token = await crypto.randomBytes(20).toString("hex");
+  this.resetPasswordToken = await crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  this.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+
+  return token;
 };
 
 export const User = model("User", schema);

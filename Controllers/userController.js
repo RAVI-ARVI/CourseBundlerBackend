@@ -1,6 +1,8 @@
+import crypto from "crypto";
 import { catchAsyncError } from "../middlewares/catchAsyncErrors.js";
 import { User } from "../models/User.js";
 import ErrorHandler from "../utills/errorHandler.js";
+import { sendEmail } from "../utills/sendEmail.js";
 import { sendToken } from "../utills/sendToken.js";
 
 export const register = catchAsyncError(async (req, res, next) => {
@@ -90,6 +92,7 @@ export const changeMyPassword = catchAsyncError(async (req, res, next) => {
   if (!validatePassword) {
     return next(new ErrorHandler("Invalidate Password", 401));
   }
+
   user.password = newPassword;
   await user.save();
 
@@ -127,5 +130,57 @@ export const updateProfilePicture = catchAsyncError(async (req, res, next) => {
   return res.status(201).json({
     success: true,
     message: "Profile Picture will  Update soon",
+  });
+});
+
+export const forgotPassword = catchAsyncError(async (req, res, next) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email: email });
+  if (!user) next(new ErrorHandler("User not found with this Email Id", 400));
+
+  const resetToken = await user.generateToken();
+  await user.save();
+
+  const url = `${process.env.FRONTEND_URL}/token/${resetToken}`;
+  const message = `Click the link to reset your password. ${url}. If you have not request then please ignore`;
+
+  sendEmail(user.email, "CourseBundler Reset Password ", message);
+
+  // send token to email
+
+  return res.status(200).json({
+    success: true,
+    message: `Reset Token has been sent to ${user.email}`,
+  });
+});
+
+export const resetPassword = catchAsyncError(async (req, res, next) => {
+  // Need to add Multer : ToDo
+  const { token } = req.params;
+
+  const resetPasswordToken = await crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: {
+      $gt: Date.now(),
+    },
+  });
+
+  if (!user) {
+    return next(new ErrorHandler("User Token Expired", 404));
+  }
+  user.password = req.body.password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  await user.save();
+
+  return res.status(201).json({
+    success: true,
+    message: "User Password updated Successfully",
   });
 });
