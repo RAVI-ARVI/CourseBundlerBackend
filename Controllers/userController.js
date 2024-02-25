@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { catchAsyncError } from "../middlewares/catchAsyncErrors.js";
 import { User } from "../models/User.js";
+
+import { Course } from "../models/Course.js";
 import ErrorHandler from "../utills/errorHandler.js";
 import { sendEmail } from "../utills/sendEmail.js";
 import { sendToken } from "../utills/sendToken.js";
@@ -182,5 +184,53 @@ export const resetPassword = catchAsyncError(async (req, res, next) => {
   return res.status(201).json({
     success: true,
     message: "User Password updated Successfully",
+  });
+});
+
+export const addToPlaylist = catchAsyncError(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+  const course = await Course.findById(req.body.id);
+
+  if (!course) {
+    next(new ErrorHandler("Course not Found", 404));
+  }
+  const isExistingCourse = user.playlist.find((item) => {
+    if (item.course.toString() == course._id.toString()) return true;
+  });
+
+  if (isExistingCourse) {
+    next(new ErrorHandler("Item Already Exists", 409));
+  }
+  user.playlist.push({
+    course: course._id,
+    poster: course.poster.url,
+  });
+  await user.save();
+
+  return res.status(201).json({
+    success: true,
+    message: `Added To PlayList`,
+  });
+});
+
+export const removeFromPlaylist = catchAsyncError(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+  const course = await Course.findById(req.query.id);
+
+  if (!course) {
+    next(new ErrorHandler("Course not Found", 404));
+  }
+  const nexPlaylist = user.playlist.filter((item) => {
+    if (item.course.toString() !== course._id.toString()) {
+      return item;
+    }
+  });
+  user.playlist = nexPlaylist;
+
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: `Removed To PlayList`,
   });
 });
