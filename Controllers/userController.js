@@ -2,7 +2,9 @@ import crypto from "crypto";
 import { catchAsyncError } from "../middlewares/catchAsyncErrors.js";
 import { User } from "../models/User.js";
 
+import cloudinary from "cloudinary";
 import { Course } from "../models/Course.js";
+import getDataUri from "../utills/dataUri.js";
 import ErrorHandler from "../utills/errorHandler.js";
 import { sendEmail } from "../utills/sendEmail.js";
 import { sendToken } from "../utills/sendToken.js";
@@ -10,11 +12,12 @@ import { sendToken } from "../utills/sendToken.js";
 export const register = catchAsyncError(async (req, res, next) => {
   const { name, email, password } = req.body;
 
-  if (!name || !email || !password) {
+  const file = req.file;
+
+  if (!name || !email || !password || !file) {
     return next(new ErrorHandler("Please Enter All Fields", 400));
   }
 
-  //   const file= req.file
   let user = await User.findOne({ email: email });
 
   if (user) {
@@ -23,13 +26,17 @@ export const register = catchAsyncError(async (req, res, next) => {
 
   //uploading file to cluodnary
 
+  const filuri = getDataUri(file);
+
+  const mycloud = await cloudinary.v2.uploader.upload(filuri.content);
+
   user = await User.create({
     name: name,
     email: email,
     password: password,
     avatar: {
-      public_id: "temp",
-      url: "temp",
+      public_id: mycloud.public_id,
+      url: mycloud.secure_url,
     },
   });
 
@@ -38,7 +45,7 @@ export const register = catchAsyncError(async (req, res, next) => {
 
 export const login = catchAsyncError(async (req, res, next) => {
   const { email, password } = req.body;
-  console.log(email, password, "this is user details");
+
   if (!email || !password) {
     return next(new ErrorHandler("Please Enter All Fields", 400));
   }
@@ -127,11 +134,23 @@ export const updateProfile = catchAsyncError(async (req, res, next) => {
 });
 
 export const updateProfilePicture = catchAsyncError(async (req, res, next) => {
-  // Need to add Multer : ToDo
+  const file = req.file;
+
+  const user = await User.findById(req.user._id);
+
+  const filuri = getDataUri(file);
+  const mycloud = await cloudinary.v2.uploader.upload(filuri.content);
+
+  await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+  user.avatar = {
+    public_id: mycloud.public_id,
+    url: mycloud.secure_url,
+  };
+  await user.save();
 
   return res.status(201).json({
     success: true,
-    message: "Profile Picture will  Update soon",
+    message: "Profile Picture Updated SuccessFully   ",
   });
 });
 
@@ -232,5 +251,72 @@ export const removeFromPlaylist = catchAsyncError(async (req, res, next) => {
   return res.status(200).json({
     success: true,
     message: `Removed To PlayList`,
+  });
+});
+
+export const getAllUsers = catchAsyncError(async (req, res, next) => {
+  const users = await User.find();
+
+  return res.status(200).json({
+    success: true,
+    usersCount: users.length,
+    users,
+  });
+});
+
+export const updateUserRole = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+
+  const user = await User.findById(id);
+  if (!user) {
+    next(new ErrorHandler("User not Found", 404));
+  }
+
+  if (user.role == "user") {
+    user.role = "admin";
+  } else {
+    user.role = "user";
+  }
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    message: "User Role Updated Successfully",
+  });
+});
+
+export const deleteUserRole = catchAsyncError(async (req, res, next) => {
+  const { id } = req.params;
+
+  const user = await User.findById(id);
+
+  if (!user) {
+    next(new ErrorHandler("User not Found", 404));
+  }
+
+  await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+  await user.deleteOne();
+
+  return res.status(200).json({
+    success: true,
+    message: "User Deleted Successfully",
+  });
+});
+
+export const deleteMe = catchAsyncError(async (req, res, next) => {
+  console.log(req.user);
+  const user = await User.findById(req.user._id);
+
+  await cloudinary.v2.uploader.destroy(user.avatar.public_id);
+
+  await user.deleteOne();
+  const options = {
+    expires: new Date(Date.now()),
+  };
+
+  return res.cookie("token", null, options).status(200).json({
+    success: true,
+    message: "User Deleted Successfully",
   });
 });
